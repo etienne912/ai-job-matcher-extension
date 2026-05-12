@@ -208,17 +208,18 @@ function aiRequest(payload) {
 }
 
 // ── Prompt builders ──────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are a job application assistant. Your role is to objectively compare a job listing against a candidate's CV and their stated job requirements, then return a structured JSON assessment.
+const SYSTEM_PROMPT = `You are a job application assistant. Your role is to objectively compare a job listing against the user's CV and their stated job requirements, then return a structured JSON assessment.
+Address the user directly using "you" and "your" (e.g., "You have the required skills" instead of "The candidate has...").
 Return ONLY valid JSON — no markdown fences, no explanation outside the JSON.`;
 
 function buildStaticPrompt(settings) {
   const arrangements = Object.entries(settings.workArrangement || {})
     .filter(([, v]) => v).map(([k]) => k).join(', ') || 'Not specified';
 
-  return `Candidate CV
+  return `User CV
 ${settings.cv || '(not provided)'}
 
-Candidate job requirements
+User job requirements
 Target titles: ${settings.targetTitles || 'Not specified'}
 Salary minimum: ${settings.salaryMin || 'Not specified'} ${settings.currency || ''}
 Work arrangement preference: ${arrangements}
@@ -235,7 +236,7 @@ Analyse the job listing and return a JSON object with this exact structure:
   "score": <integer 0-100>,
   "jobTitle": "<extracted job title>",
   "company": "<extracted company name>",
-  "verdict": "<one sentence plain English summary>",
+  "verdict": "<one sentence plain English summary addressing the user directly>",
   "criteria": [
     {"label": "Skills match",     "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"},
     {"label": "Seniority level",  "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"},
@@ -244,7 +245,7 @@ Analyse the job listing and return a JSON object with this exact structure:
     {"label": "Industry",         "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"},
     {"label": "Deal-breakers",    "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"}
   ],
-  "fullAnalysis": "<3-5 paragraphs of detailed honest assessment>"
+  "fullAnalysis": "<3-5 paragraphs of detailed honest assessment addressing the user directly>"
 }`;
 }
 
