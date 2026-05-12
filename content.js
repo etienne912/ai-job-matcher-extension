@@ -3,35 +3,91 @@
 
   const JOB_KEYWORDS = [
     'responsibilities', 'requirements', 'qualifications', 'apply',
-    'salary', 'benefits', 'experience', 'skills', 'compensation', 'hiring'
+    'salary', 'benefits', 'experience', 'skills', 'compensation', 'hiring',
+    'description', 'about the role', 'ideal candidate', 'what you will do',
+    'key responsibilities', 'minimum qualifications', 'preferred qualifications',
+    'who we are', 'equal opportunity employer', 'years of experience'
   ];
-  const MIN_KEYWORD_MATCHES = 3;
   const MAX_WORDS = 2000;
 
   let lastSentUrl = null;
   let debounceTimer = null;
 
   function extractText() {
-    const priorityEl = document.querySelector(
-      'main, article, [role="main"], .job-description, #job-description, ' +
-      '.jobDescriptionContent, .description__text, [data-testid="job-detail"]'
-    );
-    const source = priorityEl || document.body;
+    // 1. Identify the core container
+    const selectors = [
+      'main', 'article', '[role="main"]',
+      '.job-description', '#job-description', '.jobDescriptionContent',
+      '.description__text', '[data-testid="job-detail"]', '.job-details-content',
+      '#jobDescriptionText', '.jobs-description', '.jobs-description-content',
+      '.job-details-post', '#vjs-content', '.show-more-less-html__markup'
+    ];
+    
+    let source = null;
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (el && el.innerText && el.innerText.length > 200) {
+        source = el;
+        break;
+      }
+    }
+    
+    if (!source) source = document.body;
+
     const clone = source.cloneNode(true);
 
-    clone.querySelectorAll(
-      'nav, footer, header, [role="navigation"], [role="banner"], ' +
-      'script, style, noscript, .cookie-banner, #cookie-banner, ' +
-      '.nav, .navbar, .footer, .header, [aria-hidden="true"]'
-    ).forEach(el => el.remove());
+    // 2. Remove noise
+    const noiseSelectors = [
+      'nav', 'footer', 'header', 'aside', '[role="navigation"]', '[role="banner"]',
+      'script', 'style', 'noscript', 'canvas', 'svg', 'iframe',
+      '.cookie-banner', '#cookie-banner', '.nav', '.navbar', '.footer', '.header',
+      '[aria-hidden="true"]', 'button', '.apply-button', '.social-share',
+      '.similar-jobs', '.recommended-jobs', '#recent-searches', '.sidebar',
+      '.job-alert-form', '.jobs-upsell', '.jobs-search-box'
+    ];
 
-    return (clone.innerText || clone.textContent || '').trim();
+    clone.querySelectorAll(noiseSelectors.join(', ')).forEach(el => el.remove());
+
+    // 2.5 Remove display:none elements
+    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT, null, false);
+    const hiddenNodes = [];
+    let node = walker.nextNode();
+    while (node) {
+      if (node.style && (node.style.display === 'none' || node.style.visibility === 'hidden')) {
+        hiddenNodes.push(node);
+      }
+      node = walker.nextNode();
+    }
+    hiddenNodes.forEach(n => n.remove());
+
+    // 3. Clean up text
+    let text = clone.innerText || clone.textContent || '';
+    
+    // Normalize whitespace: replace multiple spaces/newlines with single ones
+    text = text.replace(/\s+/g, ' ').trim();
+
+    return text;
   }
 
   function isJobListing(text) {
+    if (!text || text.length < 300) return false;
     const lower = text.toLowerCase();
-    const matches = JOB_KEYWORDS.filter(kw => lower.includes(kw));
-    return matches.length >= MIN_KEYWORD_MATCHES;
+    
+    // Weighted scoring
+    let score = 0;
+    JOB_KEYWORDS.forEach(kw => {
+      // Use regex for whole-word matching or just include check for simple phrases
+      if (lower.includes(kw)) {
+        // High-value keywords get more weight
+        if (['responsibilities', 'qualifications', 'requirements', 'salary', 'experience', 'about the role', 'ideal candidate'].includes(kw)) {
+          score += 2;
+        } else {
+          score += 1;
+        }
+      }
+    });
+
+    return score >= 6; // Slightly lower threshold but with weighted scores
   }
 
   function truncateWords(text, maxWords) {
