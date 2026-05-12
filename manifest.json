@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "AI Job Matcher",
+  "name": "Job Matcher Assistant",
+  "short_name": "Job Matcher",
   "version": "1.0.4",
   "description": "AI-powered job listing analyser — scores job offers against your CV and requirements",
-  "permissions": ["storage", "activeTab", "scripting", "sidePanel"],
+  "homepage_url": "https://github.com/etienne912/ai-job-matcher-extension",
+  "permissions": ["storage", "activeTab", "sidePanel"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js",

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — AI Job Matcher</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #1a1a1a;
+      max-width: 720px;
+      margin: 48px auto;
+      padding: 0 24px;
+    }
+    h1 { font-size: 24px; margin-bottom: 4px; }
+    h2 { font-size: 17px; margin-top: 32px; margin-bottom: 8px; }
+    p, ul { margin-bottom: 12px; }
+    ul { padding-left: 24px; }
+    .updated { font-size: 13px; color: #666; margin-bottom: 32px; }
+    a { color: #3B6D11; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: May 2026</p>
+
+  <p>AI Job Matcher ("the extension") is a Chrome browser extension that analyses job listings against your CV and preferences using an AI provider of your choice. This policy explains what data the extension handles and how.</p>
+
+  <h2>Data collected and stored locally</h2>
+  <p>The following information is stored exclusively in your browser using <code>chrome.storage.local</code>, which is protected by your Chrome profile and never leaves your device unless you explicitly trigger an analysis:</p>
+  <ul>
+    <li>Your CV text</li>
+    <li>Job preferences (target titles, salary, work arrangement, skills, deal-breakers)</li>
+    <li>Your chosen AI provider and model</li>
+    <li>Your AI provider API key (if using a cloud provider)</li>
+  </ul>
+
+  <h2>Data sent to third parties</h2>
+  <p>When you analyse a job listing, the following is sent to the AI provider you have selected in settings:</p>
+  <ul>
+    <li>The text content of the job listing page</li>
+    <li>Your CV and job preferences (as part of the analysis prompt)</li>
+    <li>Your API key (to authenticate with the provider)</li>
+  </ul>
+  <p>The extension supports the following providers. Each has its own privacy policy:</p>
+  <ul>
+    <li><strong>Anthropic (Claude)</strong> — <a href="https://www.anthropic.com/privacy" target="_blank">anthropic.com/privacy</a></li>
+    <li><strong>OpenAI</strong> — <a href="https://openai.com/policies/privacy-policy" target="_blank">openai.com/policies/privacy-policy</a></li>
+    <li><strong>Google Gemini</strong> — <a href="https://policies.google.com/privacy" target="_blank">policies.google.com/privacy</a></li>
+    <li><strong>Mistral AI</strong> — <a href="https://mistral.ai/privacy/" target="_blank">mistral.ai/privacy</a></li>
+    <li><strong>Ollama (local)</strong> — All processing happens on your own machine. No data is sent over the network.</li>
+  </ul>
+
+  <h2>Data not collected</h2>
+  <p>The extension does <strong>not</strong>:</p>
+  <ul>
+    <li>Collect analytics or usage data</li>
+    <li>Send any data to the extension developer</li>
+    <li>Track your browsing history</li>
+    <li>Share your information with any party other than your chosen AI provider</li>
+    <li>Store data on any remote server</li>
+  </ul>
+
+  <h2>Permissions</h2>
+  <p>The extension requests the following Chrome permissions:</p>
+  <ul>
+    <li><strong>storage</strong> — to save your CV and preferences locally</li>
+    <li><strong>activeTab</strong> — to read the current page when a job listing is detected</li>
+    <li><strong>sidePanel</strong> — to display the analysis panel alongside the page</li>
+    <li><strong>Host access (all URLs)</strong> — job listings appear on any website (company career pages, job boards, LinkedIn, etc.), so the extension needs permission to detect them wherever they appear</li>
+  </ul>
+
+  <h2>Contact</h2>
+  <p>For questions about this policy, please open an issue on the <a href="https://github.com/etienne912/ai-job-matcher-extension" target="_blank">GitHub repository</a>.</p>
+</body>
+</html>

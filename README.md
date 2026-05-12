@@ -31,9 +31,15 @@ Paste a job posting URL, open the sidebar, and get a structured match score with
 
 ---
 
-## Exemple
+## Usage exemple
 
 ![job_exemple.jpg](docs/job_exemple.jpg)
+
+---
+
+## Quicl settings view
+
+![settings.jpg](docs/settings.jpg)
 
 ---
 
