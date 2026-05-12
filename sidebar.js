@@ -8,7 +8,8 @@ const states = {
   noCv:     document.getElementById('state-no-cv'),
   notJob:   document.getElementById('state-not-job'),
   error:    document.getElementById('state-error'),
-  results:  document.getElementById('state-results')
+  results:  document.getElementById('state-results'),
+  history:  document.getElementById('state-history')
 };
 
 const el = {
@@ -21,13 +22,55 @@ const el = {
   fullAnalysisBody:    document.getElementById('full-analysis-body'),
   partialError:        document.getElementById('partial-error'),
   errorMsg:            document.getElementById('error-message'),
-  dealbreakerWarning:  document.getElementById('dealbreaker-warning')
+  dealbreakerWarning:  document.getElementById('dealbreaker-warning'),
+  historyList:         document.getElementById('history-list')
 };
 
 // ── State helpers ────────────────────────────────────────────────────────────
+let previousState = 'loading';
 function showState(name) {
-  Object.values(states).forEach(s => s.classList.add('hidden'));
+  Object.entries(states).forEach(([k, s]) => {
+    if (!s.classList.contains('hidden')) previousState = k;
+    s.classList.add('hidden');
+  });
   states[name].classList.remove('hidden');
+}
+
+// ── History ──────────────────────────────────────────────────────────────────
+function renderHistory(historyItems) {
+  el.historyList.innerHTML = '';
+  
+  if (!historyItems || historyItems.length === 0) {
+    el.historyList.innerHTML = '<div class="history-empty">No history yet. Analyse some jobs!</div>';
+    return;
+  }
+
+  historyItems.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = `
+      <div class="history-info">
+        <span class="history-job-title">${escHtml(item.jobTitle || 'Unknown Job')}</span>
+        <span class="history-company">${escHtml(item.company || 'Unknown Company')}</span>
+      </div>
+      <div class="history-score" style="color: ${getScoreColor(item.score)}">${item.score}%</div>
+    `;
+    
+    div.addEventListener('click', () => {
+      renderResults(item, false);
+      if (item.url) {
+        window.open(item.url, '_blank');
+      }
+    });
+    
+    el.historyList.appendChild(div);
+  });
+}
+
+function getScoreColor(score) {
+  if (score >= 70)      return '#3B6D11';
+  else if (score >= 40) return '#854F0B';
+  else                  return '#A32D2D';
 }
 
 // ── Score ring ───────────────────────────────────────────────────────────────
@@ -35,12 +78,7 @@ function updateScoreRing(score) {
   const offset = CIRCUMFERENCE * (1 - score / 100);
   el.scoreRing.style.strokeDashoffset = offset;
   el.scoreLabel.textContent = score + '%';
-
-  let colour;
-  if (score >= 70)      colour = '#3B6D11';
-  else if (score >= 40) colour = '#854F0B';
-  else                  colour = '#A32D2D';
-  el.scoreRing.style.stroke = colour;
+  el.scoreRing.style.stroke = getScoreColor(score);
 }
 
 // ── Criteria rendering ───────────────────────────────────────────────────────
@@ -275,7 +313,7 @@ async function runAnalysis(jobText) {
       analysis = { rawText: response.text, fullAnalysis: response.text };
     }
 
-    // Cache in session storage
+    // Cache in session storage and history
     await sendMessage({ type: 'SAVE_ANALYSIS', analysis: { ...analysis, isPartial } })
       .catch(err => console.warn('Failed to cache analysis:', err));
 
@@ -296,14 +334,14 @@ let currentJobText = null;
 async function init() {
   // 1. Check for a cached analysis first
   const cached = await sendMessage({ type: 'GET_ANALYSIS' }).catch(() => ({ analysis: null }));
-  if (cached.analysis) {
+  if (cached && cached.analysis) {
     renderResults(cached.analysis, cached.analysis.isPartial);
     return;
   }
 
   // 2. Get job text from background (checks session store → content script)
   const jobData = await sendMessage({ type: 'GET_JOB_TEXT' }).catch(() => ({ text: null }));
-  if (!jobData.text) {
+  if (!jobData || !jobData.text) {
     showState('notJob');
     return;
   }
@@ -320,6 +358,17 @@ function openSettings() {
 document.getElementById('btn-settings-header').addEventListener('click', openSettings);
 document.getElementById('btn-open-settings').addEventListener('click', openSettings);
 document.getElementById('btn-go-settings').addEventListener('click', openSettings);
+
+document.getElementById('btn-history').addEventListener('click', async () => {
+  const { history = [] } = await chrome.storage.local.get('history');
+  renderHistory(history);
+  showState('history');
+});
+
+document.getElementById('btn-back-from-history').addEventListener('click', () => {
+  // If we have results, go back to results, otherwise initial state
+  showState(previousState === 'history' ? 'notJob' : previousState);
+});
 
 document.getElementById('btn-close').addEventListener('click', () => {
   // Chrome Side Panel has no close API; minimise by navigating away or just signal intent
@@ -352,11 +401,21 @@ document.getElementById('btn-analyse-anyway').addEventListener('click', async ()
   await runAnalysis(currentJobText);
 });
 
-// Listen for new job detections (e.g. SPA navigation on the current tab)
-chrome.runtime.onMessage.addListener((message) => {
+// Listen for new job detections or tab changes
+chrome.runtime.onMessage.addListener(async (message) => {
   if (message.type === 'JOB_DETECTED') {
     currentJobText = message.text;
-    runAnalysis(currentJobText);
+    
+    // Check if we have a cached analysis for this new URL (via history or session)
+    const cached = await sendMessage({ type: 'GET_ANALYSIS' }).catch(() => ({ analysis: null }));
+    if (cached.analysis) {
+      renderResults(cached.analysis, cached.analysis.isPartial);
+    } else {
+      runAnalysis(currentJobText);
+    }
+  } else if (message.type === 'TAB_CHANGED') {
+    // Re-initialize for the new active tab
+    init();
   }
 });
 

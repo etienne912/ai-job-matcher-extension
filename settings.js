@@ -172,6 +172,14 @@ function save() {
 
 [arrRemote, arrHybrid, arrOnsite].forEach(el => el.addEventListener('change', save));
 
+// Handle Ctrl+S / Cmd+S to save settings
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    save();
+  }
+});
+
 // ── Port-based AI request (mirrors sidebar.js — keeps service worker alive) ───
 function aiRequest(payload) {
   return new Promise((resolve, reject) => {

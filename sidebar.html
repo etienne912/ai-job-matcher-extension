@@ -63,6 +63,65 @@
     }
     .icon-btn:hover { background: var(--grey-bg); }
 
+    /* ── History ─────────────────────────────────────── */
+    #state-history { padding: 0; }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .history-item:hover { background: var(--grey-bg); }
+
+    .history-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .history-job-title {
+      font-weight: 500;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-company {
+      font-size: 11px;
+      color: var(--grey);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-score {
+      font-weight: 700;
+      font-size: 14px;
+      margin-left: 12px;
+      min-width: 40px;
+      text-align: right;
+    }
+
+    .history-empty {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--grey);
+      font-size: 13px;
+    }
+
     /* ── States ──────────────────────────────────────── */
     .state { padding: 28px 16px; }
     .hidden { display: none !important; }
@@ -280,9 +339,8 @@
       border-bottom: 2px solid var(--grey);
       transform: rotate(-45deg);
       transition: transform 0.2s;
-      margin-top: 2px;
     }
-    .full-analysis[open] .chevron { transform: rotate(45deg); margin-top: -2px; }
+    .full-analysis[open] .chevron { transform: rotate(45deg); }
 
     .full-analysis-body {
       padding: 12px 16px 16px;
@@ -351,6 +409,7 @@
   <header>
     <span class="logo">Job Matcher Assistant</span>
     <div class="header-actions">
+      <button class="icon-btn" id="btn-history" title="History">&#9202;</button>
       <button class="icon-btn" id="btn-settings-header" title="Settings">&#9881;</button>
       <button class="icon-btn" id="btn-close" title="Close panel">&#10005;</button>
     </div>
@@ -360,6 +419,14 @@
   <div id="state-loading" class="state hidden">
     <div class="spinner"></div>
     <p class="loading-text">Analysing job listing&hellip;</p>
+  </div>
+
+  <!-- History -->
+  <div id="state-history" class="hidden">
+    <div id="history-list" class="history-list"></div>
+    <div class="result-actions">
+      <button id="btn-back-from-history" class="primary-btn" style="flex: 1; margin-top: 0;">Back</button>
+    </div>
   </div>
 
   <!-- No CV configured -->
