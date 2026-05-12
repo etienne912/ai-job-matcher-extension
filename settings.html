@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Matcher Assistant — Settings</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:    #3B6D11;
+      --green-bg: #EAF3DE;
+      --amber:    #854F0B;
+      --amber-bg: #FAEEDA;
+      --red:      #A32D2D;
+      --red-bg:   #FCEBEB;
+      --grey:     #5F5E5A;
+      --grey-bg:  #F1EFE8;
+      --border:   #E0E0E0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      font-size: 14px;
+      color: #1A1A1A;
+      background: #F7F7F5;
+      padding-bottom: 60px;
+    }
+
+    /* ── Page header ──────────────────────────────────── */
+    .page-header {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 20px 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .page-header-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    #saved-flash {
+      font-size: 12px;
+      color: var(--green);
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #saved-flash.visible { opacity: 1; }
+
+    /* ── Layout ───────────────────────────────────────── */
+    .container {
+      max-width: 680px;
+      margin: 28px auto 0;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Cards ────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.1px;
+    }
+
+    .card-body {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Form fields ──────────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 5px; }
+
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--grey);
+      margin-top: -2px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="password"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #1A1A1A;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(59,109,17,0.12);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+      line-height: 1.5;
+    }
+
+    textarea#cv { min-height: 180px; }
+
+    /* Inline row for salary + currency */
+    .field-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .field-row input { flex: 1; }
+    .field-row select { width: 90px; flex-shrink: 0; }
+
+    /* API key row */
+    .api-key-row {
+      display: flex;
+      gap: 6px;
+    }
+    .api-key-row input { flex: 1; }
+
+    .icon-btn {
+      background: var(--grey-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 0 10px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--grey);
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .icon-btn:hover { background: #E5E2DA; }
+
+    /* Char count */
+    .char-count {
+      font-size: 11px;
+      color: var(--grey);
+      text-align: right;
+      margin-top: -2px;
+    }
+
+    /* Checkboxes */
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: normal;
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    /* Test connection */
+    .test-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #btn-test {
+      background: var(--grey-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      color: #333;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    #btn-test:hover { background: #E5E2DA; }
+    #btn-test:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    #test-result {
+      font-size: 13px;
+      font-weight: 500;
+    }
+    #test-result.ok  { color: var(--green); }
+    #test-result.err { color: var(--red); }
+
+    /* Hidden elements */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div class="page-header-inner">
+      <h1 class="page-title">Job Matcher Assistant Settings</h1>
+      <span id="saved-flash">Saved</span>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- ── 1. AI Provider ──────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">AI Provider</h2></div>
+      <div class="card-body">
+
+        <div class="field">
+          <label for="provider">Provider</label>
+          <select id="provider">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="ollama">Ollama (local)</option>
+            <option value="mistral">Mistral AI</option>
+          </select>
+        </div>
+
+        <div class="field" id="field-api-key">
+          <label for="api-key">API Key</label>
+          <div class="api-key-row">
+            <input type="password" id="api-key" placeholder="sk-…" autocomplete="off"/>
+            <button class="icon-btn" id="btn-show-key" type="button">Show</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="model">Model</label>
+          <select id="model"></select>
+          <input type="text" id="model-custom" class="hidden" placeholder="e.g. llama3.2 or mistral"/>
+        </div>
+
+        <div class="test-row">
+          <button id="btn-test" type="button">Test connection</button>
+          <span id="test-result"></span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── 2. CV / Résumé ──────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">My CV / Résumé</h2></div>
+      <div class="card-body">
+        <div class="field">
+          <label for="cv">CV (plain text)</label>
+          <textarea id="cv" placeholder="Paste your CV or résumé here as plain text…"></textarea>
+          <span class="char-count"><span id="cv-chars">0</span> characters</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 3. Job Requirements ─────────────────────────────── -->
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">My Job Requirements</h2></div>
+      <div class="card-body">
+
+        <div class="field">
+          <label for="target-titles">Target job titles</label>
+          <input type="text" id="target-titles" placeholder="e.g. Senior Engineer, Staff Engineer, Tech Lead"/>
+          <span class="hint">Comma-separated</span>
+        </div>
+
+        <div class="field">
+          <label>Target salary minimum</label>
+          <div class="field-row">
+            <input type="number" id="salary-min" placeholder="e.g. 80000" min="0"/>
+            <select id="currency">
+              <option value="£">£ GBP</option>
+              <option value="$">$ USD</option>
+              <option value="€">€ EUR</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Work arrangement</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="arr-remote" value="Remote"/> Remote
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="arr-hybrid" value="Hybrid"/> Hybrid
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="arr-onsite" value="On-site"/> On-site
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="preferred-industries">Preferred industries</label>
+          <input type="text" id="preferred-industries" placeholder="e.g. FinTech, SaaS, Healthcare"/>
+          <span class="hint">Comma-separated</span>
+        </div>
+
+        <div class="field">
+          <label for="must-have-skills">Must-have skills</label>
+          <textarea id="must-have-skills" placeholder="TypeScript&#10;React&#10;PostgreSQL"></textarea>
+          <span class="hint">One per line</span>
+        </div>
+
+        <div class="field">
+          <label for="deal-breakers">Deal-breakers</label>
+          <textarea id="deal-breakers" placeholder="No relocation&#10;No on-call rotation&#10;No unpaid overtime"></textarea>
+          <span class="hint">One per line</span>
+        </div>
+
+        <div class="field">
+          <label for="notes">Notes / anything else</label>
+          <textarea id="notes" placeholder="Any additional context for the AI analyser…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
