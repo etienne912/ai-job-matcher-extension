@@ -14,8 +14,9 @@
 - **⚡ Instant Scoring** — 0–100 match score with a beautiful animated ring indicator.
 - **📊 Detailed Breakdown** — Analysis of Skills, Seniority, Salary, Work Arrangement, Industry, and more.
 - **🚩 Deal-breaker Alerts** — Immediate visual warnings if a job violates your "non-negotiables".
-- **📜 Analysis History** — Keeps track of the last 30 jobs you've looked at, syncable across tabs.
+- **📜 Analysis History** — Keeps track of the last 30 jobs you've looked at, with **history clearing** support.
 - **🔍 Smart Detection** — Automatically recognizes job listings on LinkedIn, Indeed, Glassdoor, and many others.
+- **📄 CV Import** — Quickly import your profile from PDF or Word files to get set up in seconds.
 - **🤖 Multi-Model Support** — Use your favorite AI: Anthropic (Claude), OpenAI (GPT), Google (Gemini), Mistral, or keep it 100% private with local **Ollama** models.
 - **🔒 Privacy First** — Your CV and API keys are stored locally. Data is only sent to the AI provider you choose.
 
@@ -33,13 +34,13 @@
 
 ## 🛠️ Supported AI Providers
 
-| Provider | Recommended Models                                                      |
-| :--- |:------------------------------------------------------------------------|
-| **Anthropic** | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`              |
-| **OpenAI** | `gpt-5.5`, `gpt-5.5-pro`, `gpt-5.5-instant`, `o4-mini`, `gpt-4o`        |
-| **Google Gemini** | `gemini-3.1-pro`, `gemini-3.1-flash`, `gemini-3.0-flash`                |
-| **Mistral AI** | `mistral-small-latest`, `mistral-medium-latest`, `mistral-large-latest` |
-| **Ollama (Local)** | `llama3.1`, `mistral`, `phi3` (Populated from your local library)       |
+| Provider | Recommended Models                                                                    |
+| :--- |---------------------------------------------------------------------------------------|
+| **Anthropic** | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-sonnet-4.5`, `claude-haiku-4-5`       |
+| **OpenAI** | `gpt-5.5`, `gpt-5.5-pro`, `gpt-5.5-mini`, `gpt-5.4-mini`, `gpt-4.1`                   |
+| **Google Gemini** | `gemini-3.5-flash`, `gemini-3.1-flash`, `gemini-3.1-pro`, `gemini-2.5-pro`            |
+| **Mistral AI** | `mistral-small-latest`, `mistral-large-latest`                                        |
+| **Ollama (Local)** | `llama3.1`, `mistral`, `phi3` (Populated from your local library)                     |
 
 ---
 
@@ -57,7 +58,10 @@
 ## ⚙️ Configuration
 
 1. **Open Settings**: Click the gear icon in the sidebar or right-click the extension icon → **Options**.
-2. **Set your Profile**: Paste your CV and define your job preferences (salary, location, skills).
+2. **Set your Profile**:
+   - **CV**: Paste your CV text or use the **Import CV** button to extract text from a PDF/Docx.
+   - **Target Titles & Locations**: Define exactly what roles and where you are looking (e.g., "Remote", "London").
+   - **Job Preferences**: Set your desired salary range and work arrangement (Remote/Hybrid/Onsite).
 3. **Connect AI**: Add your API key for your preferred provider or point it to your local Ollama instance.
 4. **Save**: Press `Ctrl+S` (or `Cmd+S`) to save instantly.
 

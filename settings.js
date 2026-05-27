@@ -4,17 +4,17 @@
 const PROVIDERS = {
   anthropic: {
     name: 'Anthropic (Claude)',
-    models: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
+    models: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-sonnet-4.5', 'claude-haiku-4-5-20251001'],
     hasApiKey: true
   },
   openai: {
     name: 'OpenAI',
-    models: ['gpt-5.5', 'gpt-5.5-pro', 'gpt-5.5-instant', 'o4-mini', 'gpt-4o'],
+    models: ['gpt-5.5', 'gpt-5.5-pro', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-4.1'],
     hasApiKey: true
   },
   gemini: {
     name: 'Google Gemini',
-    models: ['gemini-3.1-pro', 'gemini-3.1-flash', 'gemini-3.0-flash'],
+    models: ['gemini-3.5-flash', 'gemini-3.1-flash', 'gemini-3.1-pro', 'gemini-2.5-pro'],
     hasApiKey: true
   },
   ollama: {
