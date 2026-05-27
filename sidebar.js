@@ -213,22 +213,62 @@ Address the user directly using "you" and "your" (e.g., "You have the required s
 Return ONLY valid JSON — no markdown fences, no explanation outside the JSON.`;
 
 function buildStaticPrompt(settings) {
+  const requirements = [];
+  const criteria = [
+    { label: 'Skills match', key: 'cv' } // CV is always provided for analysis in runAnalysis
+  ];
+
+  if (settings.targetTitles) {
+    requirements.push(`Target titles: ${settings.targetTitles}`);
+    criteria.push({ label: 'Seniority level', note: 'Includes title match' });
+  }
+
+  if (settings.salaryMin) {
+    requirements.push(`Salary minimum: ${settings.salaryMin} ${settings.currency || ''}`);
+    criteria.push({ label: 'Salary' });
+  }
+
+  if (settings.targetLocations) {
+    requirements.push(`Target locations: ${settings.targetLocations}`);
+    criteria.push({ label: 'Location' });
+  }
+
   const arrangements = Object.entries(settings.workArrangement || {})
-    .filter(([, v]) => v).map(([k]) => k).join(', ') || 'Not specified';
+    .filter(([, v]) => v).map(([k]) => k).join(', ');
+  if (arrangements) {
+    requirements.push(`Work arrangement preference: ${arrangements}`);
+    criteria.push({ label: 'Work arrangement' });
+  }
+
+  if (settings.preferredIndustries) {
+    requirements.push(`Preferred industries: ${settings.preferredIndustries}`);
+    criteria.push({ label: 'Industry' });
+  }
+
+  if (settings.mustHaveSkills) {
+    requirements.push(`Must-have skills:\n${settings.mustHaveSkills}`);
+    // Skills match is already there by default as it covers CV vs Job, 
+    // but we can make it more explicit if must-have skills are provided.
+  }
+
+  if (settings.dealBreakers) {
+    requirements.push(`Deal-breakers:\n${settings.dealBreakers}`);
+    criteria.push({ label: 'Deal-breakers' });
+  }
+
+  if (settings.notes) {
+    requirements.push(`Additional notes: ${settings.notes}`);
+  }
+
+  const criteriaJson = criteria.map(c => 
+    `{"label": "${c.label}", "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"}`
+  ).join(',\n    ');
 
   return `User CV
 ${settings.cv || '(not provided)'}
 
 User job requirements
-Target titles: ${settings.targetTitles || 'Not specified'}
-Salary minimum: ${settings.salaryMin || 'Not specified'} ${settings.currency || ''}
-Work arrangement preference: ${arrangements}
-Preferred industries: ${settings.preferredIndustries || 'Not specified'}
-Must-have skills:
-${settings.mustHaveSkills || 'Not specified'}
-Deal-breakers:
-${settings.dealBreakers || 'Not specified'}
-Additional notes: ${settings.notes || 'None'}
+${requirements.length > 0 ? requirements.join('\n') : 'No specific requirements provided beyond CV matching.'}
 
 Task
 Analyse the job listing and return a JSON object with this exact structure:
@@ -238,12 +278,7 @@ Analyse the job listing and return a JSON object with this exact structure:
   "company": "<extracted company name>",
   "verdict": "<one sentence plain English summary addressing the user directly>",
   "criteria": [
-    {"label": "Skills match",     "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"},
-    {"label": "Seniority level",  "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"},
-    {"label": "Salary",           "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"},
-    {"label": "Work arrangement", "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"},
-    {"label": "Industry",         "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"},
-    {"label": "Deal-breakers",    "note": "<brief observation>", "status": "match" | "partial" | "mismatch" | "unknown"}
+    ${criteriaJson}
   ],
   "fullAnalysis": "<3-5 paragraphs of detailed honest assessment addressing the user directly>"
 }`;
@@ -364,6 +399,13 @@ document.getElementById('btn-history').addEventListener('click', async () => {
   const { history = [] } = await chrome.storage.local.get('history');
   renderHistory(history);
   showState('history');
+});
+
+document.getElementById('btn-clear-history').addEventListener('click', async () => {
+  if (confirm('Are you sure you want to clear your entire history?')) {
+    await sendMessage({ type: 'CLEAR_HISTORY' });
+    renderHistory([]);
+  }
 });
 
 document.getElementById('btn-back-from-history').addEventListener('click', () => {

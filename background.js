@@ -162,6 +162,11 @@ addAsyncMessageListener(async (message, sender) => {
     return { success: true };
   }
 
+  if (message.type === 'CLEAR_HISTORY') {
+    await chrome.storage.local.set({ history: [] });
+    return { success: true };
+  }
+
   if (message.type === 'FETCH_OLLAMA_MODELS') {
     try {
       const models = await fetchOllamaModels();

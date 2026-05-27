@@ -202,6 +202,26 @@
       cursor: pointer;
     }
 
+    .btn-secondary {
+      background: var(--grey-bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      color: #333;
+      transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: #E5E2DA; }
+
+    .field-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+
     /* Test connection */
     .test-row {
       display: flex;
@@ -289,7 +309,13 @@
       <div class="card-header"><h2 class="card-title">My CV / Résumé</h2></div>
       <div class="card-body">
         <div class="field">
-          <label for="cv">CV (plain text)</label>
+          <div class="field-header">
+            <label for="cv">CV (plain text)</label>
+            <div class="actions">
+              <button class="btn-secondary" id="btn-import-cv" type="button">Import CV file</button>
+              <input type="file" id="cv-file" class="hidden" accept=".txt,.pdf,.docx"/>
+            </div>
+          </div>
           <textarea id="cv" placeholder="Paste your CV or résumé here as plain text…"></textarea>
           <span class="char-count"><span id="cv-chars">0</span> characters</span>
         </div>
@@ -339,6 +365,12 @@
           <label for="preferred-industries">Preferred industries</label>
           <input type="text" id="preferred-industries" placeholder="e.g. FinTech, SaaS, Healthcare"/>
           <span class="hint">Comma-separated</span>
+        </div>
+
+        <div class="field">
+          <label for="target-locations">Target locations</label>
+          <input type="text" id="target-locations" placeholder="e.g. Paris, Lyon, Remote, Île-de-France"/>
+          <span class="hint">Comma-separated (cities, regions or countries)</span>
         </div>
 
         <div class="field">

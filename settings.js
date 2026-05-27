@@ -42,6 +42,8 @@ const btnTest        = $('btn-test');
 const testResult     = $('test-result');
 const cvInput        = $('cv');
 const cvChars        = $('cv-chars');
+const btnImportCv    = $('btn-import-cv');
+const cvFileInput    = $('cv-file');
 const savedFlash     = $('saved-flash');
 
 // Requirement fields
@@ -52,6 +54,7 @@ const arrRemote      = $('arr-remote');
 const arrHybrid      = $('arr-hybrid');
 const arrOnsite      = $('arr-onsite');
 const preferredInds  = $('preferred-industries');
+const targetLocations = $('target-locations');
 const mustHave       = $('must-have-skills');
 const dealBreakers   = $('deal-breakers');
 const notes          = $('notes');
@@ -125,6 +128,88 @@ cvInput.addEventListener('input', () => {
   cvChars.textContent = cvInput.value.length.toLocaleString();
 });
 
+// ── Import CV ─────────────────────────────────────────────────────────────────
+btnImportCv.addEventListener('click', () => {
+  cvFileInput.click();
+});
+
+cvFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      cvInput.value = event.target.result;
+      cvChars.textContent = cvInput.value.length.toLocaleString();
+      save();
+    };
+    reader.readAsText(file);
+  } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf') || file.name.endsWith('.docx')) {
+    extractTextWithAI(file);
+  } else {
+    alert('Unsupported file type. Please use a .txt file or copy-paste your CV.');
+  }
+  
+  // Reset input so the same file can be selected again
+  cvFileInput.value = '';
+});
+
+async function extractTextWithAI(file) {
+  const originalText = btnImportCv.textContent;
+  btnImportCv.textContent = 'Extracting...';
+  btnImportCv.disabled = true;
+
+  try {
+    const reader = new FileReader();
+    const base64Promise = new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+    });
+    reader.readAsDataURL(file);
+    const base64Data = await base64Promise;
+
+    const provider = providerSel.value;
+    const apiKey   = apiKeyInput.value;
+    const model    = (provider === 'ollama' && modelSel.classList.contains('hidden')) 
+      ? modelCustom.value 
+      : modelSel.value;
+
+    if (!model) throw new Error('Select a model first in AI Provider settings.');
+    if (provider !== 'ollama' && !apiKey) throw new Error('Enter an API key first in AI Provider settings.');
+
+    const response = await aiRequest({
+      provider,
+      apiKey,
+      model,
+      systemPrompt: 'You are a document text extractor. Extract ALL the text content from the provided file exactly as it appears. Do not add commentary or formatting, just the raw text content.',
+      userPrompt: 'Extract the text from this file.',
+      fileData: {
+        base64: base64Data,
+        mimeType: file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
+        fileName: file.name
+      }
+    });
+
+    if (response.error) throw new Error(response.error);
+    
+    cvInput.value = response.text;
+    cvChars.textContent = cvInput.value.length.toLocaleString();
+    save();
+    
+    btnImportCv.textContent = 'Imported!';
+    setTimeout(() => {
+      btnImportCv.textContent = originalText;
+    }, 2000);
+  } catch (err) {
+    console.error('Text extraction failed:', err);
+    alert('Failed to extract text: ' + err.message);
+    btnImportCv.textContent = originalText;
+  } finally {
+    btnImportCv.disabled = false;
+  }
+}
+
 // ── Auto-save ─────────────────────────────────────────────────────────────────
 let saveTimer = null;
 
@@ -156,6 +241,7 @@ function save() {
     targetTitles:        targetTitles.value,
     salaryMin:           salaryMin.value,
     currency:            currency.value,
+    targetLocations:     targetLocations.value,
     workArrangement:     getWorkArrangement(),
     preferredIndustries: preferredInds.value,
     mustHaveSkills:      mustHave.value,
@@ -167,7 +253,7 @@ function save() {
 // Attach save to all input/change/textarea events
 [
   apiKeyInput, modelSel, modelCustom, cvInput, targetTitles, salaryMin,
-  currency, preferredInds, mustHave, dealBreakers, notes
+  currency, preferredInds, targetLocations, mustHave, dealBreakers, notes
 ].forEach(el => el.addEventListener('input', save));
 
 [arrRemote, arrHybrid, arrOnsite].forEach(el => el.addEventListener('change', save));
@@ -263,6 +349,7 @@ chrome.storage.local.get(null, (settings) => {
   salaryMin.value     = settings.salaryMin            || '';
   currency.value      = settings.currency             || '£';
   preferredInds.value = settings.preferredIndustries  || '';
+  targetLocations.value = settings.targetLocations   || '';
   mustHave.value      = settings.mustHaveSkills       || '';
   dealBreakers.value  = settings.dealBreakers         || '';
   notes.value         = settings.notes               || '';
