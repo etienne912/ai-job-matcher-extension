@@ -356,6 +356,46 @@
       word-break: break-word;
     }
 
+    /* Hidden information */
+    .hidden-info-section {
+      border-top: 1px solid var(--border);
+      padding: 12px 16px 14px;
+      background: #FFFDF7;
+    }
+
+    .hidden-info-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--amber);
+      margin-bottom: 8px;
+    }
+
+    .hidden-info-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hidden-info-item {
+      padding: 9px 10px;
+      border: 1px solid var(--amber-bg);
+      border-radius: 7px;
+      background: #fff;
+    }
+
+    .hidden-info-text {
+      font-size: 13px;
+      line-height: 1.45;
+      color: #2F2F2F;
+    }
+
+    .hidden-info-context {
+      margin-top: 4px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--grey);
+    }
+
     /* Actions */
     .result-actions {
       display: flex;
@@ -491,6 +531,11 @@
       <summary><span class="chevron"></span> Full AI analysis</summary>
       <div id="full-analysis-body" class="full-analysis-body"></div>
     </details>
+
+    <div id="hidden-info-section" class="hidden-info-section hidden">
+      <div class="hidden-info-title">Hidden information found</div>
+      <div id="hidden-info-list" class="hidden-info-list"></div>
+    </div>
 
     <div class="result-actions">
       <button id="btn-reanalyse">Re-analyse</button>

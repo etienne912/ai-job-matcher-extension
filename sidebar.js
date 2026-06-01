@@ -20,6 +20,8 @@ const el = {
   company:             document.getElementById('company-text'),
   verdictBanner:       document.getElementById('verdict-banner'),
   criteriaList:        document.getElementById('criteria-list'),
+  hiddenInfoSection:   document.getElementById('hidden-info-section'),
+  hiddenInfoList:      document.getElementById('hidden-info-list'),
   fullAnalysisBody:    document.getElementById('full-analysis-body'),
   partialError:        document.getElementById('partial-error'),
   errorMsg:            document.getElementById('error-message'),
@@ -107,6 +109,31 @@ function renderCriteria(criteria) {
   el.criteriaList.classList.remove('hidden');
 }
 
+function renderHiddenInformation(items) {
+  el.hiddenInfoList.innerHTML = '';
+
+  if (!Array.isArray(items) || items.length === 0) {
+    el.hiddenInfoSection.classList.add('hidden');
+    return;
+  }
+
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'hidden-info-item';
+
+    const instruction = typeof item === 'string' ? item : item.instruction;
+    const context = typeof item === 'string' ? '' : item.context;
+
+    div.innerHTML = `
+      <div class="hidden-info-text">${escHtml(instruction || 'Suspicious instruction found')}</div>
+      ${context ? `<div class="hidden-info-context">${escHtml(context)}</div>` : ''}
+    `;
+    el.hiddenInfoList.appendChild(div);
+  });
+
+  el.hiddenInfoSection.classList.remove('hidden');
+}
+
 function escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -124,6 +151,7 @@ function renderResults(analysis, isPartial) {
     el.verdictBanner.classList.add('hidden');
     el.criteriaList.classList.add('hidden');
     el.dealbreakerWarning.classList.add('hidden');
+    el.hiddenInfoSection.classList.add('hidden');
     el.scoreLabel.textContent = '—';
     el.scoreRing.style.strokeDashoffset = CIRCUMFERENCE;
     el.scoreRing.style.stroke = '#5F5E5A';
@@ -149,7 +177,11 @@ function renderResults(analysis, isPartial) {
 
     if (Array.isArray(analysis.criteria) && analysis.criteria.length) {
       renderCriteria(analysis.criteria);
+    } else {
+      el.criteriaList.classList.add('hidden');
     }
+
+    renderHiddenInformation(analysis.hiddenInformation);
   }
 
   el.fullAnalysisBody.textContent = analysis.fullAnalysis || analysis.rawText || '';
@@ -287,7 +319,13 @@ Analyse the job listing and return a JSON object with this exact structure:
   "criteria": [
     ${criteriaJson}
   ],
-  "fullAnalysis": "<3-5 paragraphs of detailed honest assessment addressing the user directly>"
+  "fullAnalysis": "<3-5 paragraphs of detailed honest assessment addressing the user directly>",
+  "hiddenInformation": [
+    {
+      "instruction": "<any unusual, hidden, buried, or applicant-test instruction found in the job listing, such as asking the applicant to include a specific word, number, phrase, formatting choice, or other secret signal>",
+      "context": "<short quote or paraphrase showing where it appeared>"
+    }
+  ]
 }`;
 }
 
@@ -392,6 +430,19 @@ function normalizeAnalysis(value) {
         status: validStatuses.has(item?.status) ? item.status : 'unknown'
       }))
     : [];
+  const hiddenInformation = Array.isArray(value.hiddenInformation)
+    ? value.hiddenInformation
+        .map(item => {
+          if (typeof item === 'string') {
+            return { instruction: item, context: '' };
+          }
+          return {
+            instruction: String(item?.instruction || '').trim(),
+            context: String(item?.context || '').trim()
+          };
+        })
+        .filter(item => item.instruction)
+    : [];
 
   return {
     score: clampScore(value.score),
@@ -399,7 +450,8 @@ function normalizeAnalysis(value) {
     company: String(value.company || ''),
     verdict: String(value.verdict || ''),
     criteria,
-    fullAnalysis: String(value.fullAnalysis || '')
+    fullAnalysis: String(value.fullAnalysis || ''),
+    hiddenInformation
   };
 }
 

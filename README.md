@@ -15,6 +15,7 @@ It works well with classic job pages and job-board layouts such as LinkedIn, whe
 
 - **Match score**: 0-100 compatibility score based on your CV and preferences.
 - **Detailed breakdown**: Skills, seniority, salary, location, work arrangement, industry, and deal-breakers.
+- **Hidden information check**: Highlights buried applicant instructions or screening tests found inside the offer.
 - **LinkedIn-style job switching**: Re-detects the selected job when you click another offer in a job list/detail-panel layout.
 - **Analysis modes**: Choose automatic analysis, ask-before-analysis, or manual-only mode.
 - **History**: Keeps the last 30 analysed jobs and lets you clear history.
@@ -127,6 +128,18 @@ The content script looks for strong job-listing signals before triggering analys
 - job/careers-style URLs with enough job-specific language
 
 On LinkedIn and similar sites, clicking another job in the list updates the selected offer without a full page reload. The extension watches the job detail panel and reprocesses the new selected job.
+
+## Hidden Information Check
+
+Some job posts include buried instructions for applicants, such as asking you to add a specific word, number, phrase, or formatting detail to your CV or cover letter. The analysis includes a **Hidden information found** section when the AI detects this kind of instruction.
+
+Examples:
+
+- "Include the square root of 81 at the bottom right of your CV."
+- "Use the word pineapple in your cover letter."
+- "Add the job reference in white text at the end of your application."
+
+This section is separate from the match score. It is meant to help you notice application instructions that are easy to miss.
 
 ---
 
