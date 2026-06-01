@@ -65,48 +65,65 @@ function addAsyncMessageListener(handler) {
 
 addAsyncMessageListener(async (message, sender) => {
   if (message.type === 'JOB_DETECTED') {
-    const tabId = sender.tab.id;
+    const tabId = sender.tab?.id;
+    if (!tabId) return { success: false, error: 'No tab context available' };
     await chrome.storage.session.set({
       [`jobText_${tabId}`]: message.text,
       [`jobUrl_${tabId}`]: message.url
     });
     // Clear any stale analysis when a new job is detected
     await chrome.storage.session.remove([`analysis_${tabId}`]);
-    // Attempt to open the panel
+
+    const { autoAnalysisMode = 'auto' } = await chrome.storage.local.get('autoAnalysisMode');
+
+    // If the side panel is already open, tell it to analyse the new listing.
     try {
-      await chrome.sidePanel.open({ tabId });
+      await chrome.runtime.sendMessage({
+        type: 'SIDEBAR_JOB_DETECTED',
+        tabId,
+        text: message.text,
+        url: message.url,
+        autoAnalysisMode
+      });
     } catch (e) {
-      // ignore
+      // Sidebar might not be open, ignore
+    }
+
+    // Attempt to open the panel
+    if (autoAnalysisMode !== 'manual') {
+      try {
+        await chrome.sidePanel.open({ tabId });
+      } catch (e) {
+        // ignore
+      }
     }
     return { success: true };
   }
 
   if (message.type === 'GET_JOB_TEXT') {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tabs[0]) return { text: null, url: null };
-    const tabId = tabs[0].id;
+    const tabId = message.tabId || (await getActiveTabId());
+    if (!tabId) return { text: null, url: null, tabId: null };
 
     const stored = await chrome.storage.session.get([`jobText_${tabId}`, `jobUrl_${tabId}`]);
     if (stored[`jobText_${tabId}`]) {
-      return { text: stored[`jobText_${tabId}`], url: stored[`jobUrl_${tabId}`] };
+      return { text: stored[`jobText_${tabId}`], url: stored[`jobUrl_${tabId}`], tabId };
     }
 
     // Fall back to querying the content script directly
     return new Promise((resolve) => {
       chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_TEXT' }, (response) => {
         if (chrome.runtime.lastError || !response) {
-          resolve({ text: null, url: null });
+          resolve({ text: null, url: null, tabId });
         } else {
-          resolve({ text: response.text, url: response.url });
+          resolve({ text: response.text, url: response.url, tabId });
         }
       });
     });
   }
 
   if (message.type === 'GET_ANALYSIS') {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tabs[0]) return { analysis: null };
-    const tabId = tabs[0].id;
+    const tabId = message.tabId || (await getActiveTabId());
+    if (!tabId) return { analysis: null };
     
     // 1. Check session storage (current tab's analysis)
     const result = await chrome.storage.session.get([`analysis_${tabId}`]);
@@ -116,7 +133,7 @@ addAsyncMessageListener(async (message, sender) => {
 
     // 2. Check history for this URL
     const stored = await chrome.storage.session.get([`jobUrl_${tabId}`]);
-    const url = stored[`jobUrl_${tabId}`];
+    const url = message.url || stored[`jobUrl_${tabId}`];
     if (url) {
       const { history = [] } = await chrome.storage.local.get('history');
       const cached = history.find(h => h.url === url);
@@ -131,11 +148,10 @@ addAsyncMessageListener(async (message, sender) => {
   }
 
   if (message.type === 'SAVE_ANALYSIS') {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]) {
-      const tabId = tabs[0].id;
+    const tabId = message.tabId || (await getActiveTabId());
+    if (tabId) {
       const stored = await chrome.storage.session.get([`jobUrl_${tabId}`]);
-      const url = stored[`jobUrl_${tabId}`];
+      const url = message.url || stored[`jobUrl_${tabId}`];
       
       await chrome.storage.session.set({ [`analysis_${tabId}`]: message.analysis });
       
@@ -144,7 +160,7 @@ addAsyncMessageListener(async (message, sender) => {
         const { history = [] } = await chrome.storage.local.get('history');
         const entry = { ...message.analysis, url, timestamp: Date.now() };
         const filtered = history.filter(h => 
-          !(h.jobTitle === entry.jobTitle && h.company === entry.company)
+          !(h.url && entry.url ? h.url === entry.url : h.jobTitle === entry.jobTitle && h.company === entry.company)
         );
         const newHistory = [entry, ...filtered].slice(0, 30);
         await chrome.storage.local.set({ history: newHistory });
@@ -154,9 +170,8 @@ addAsyncMessageListener(async (message, sender) => {
   }
 
   if (message.type === 'CLEAR_ANALYSIS') {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]) {
-      const id = tabs[0].id;
+    const id = message.tabId || (await getActiveTabId());
+    if (id) {
       await chrome.storage.session.remove([`analysis_${id}`, `jobText_${id}`, `jobUrl_${id}`]);
     }
     return { success: true };
@@ -183,6 +198,11 @@ addAsyncMessageListener(async (message, sender) => {
 
   return null; // Unhandled message
 });
+
+async function getActiveTabId() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tabs[0]?.id || null;
+}
 
 // Notify sidebar when active tab changes
 chrome.tabs.onActivated.addListener(async (activeInfo) => {

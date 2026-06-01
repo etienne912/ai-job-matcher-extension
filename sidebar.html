@@ -145,6 +145,7 @@
     /* No CV / Not-job / Error — centred simple states */
     #state-no-cv,
     #state-not-job,
+    #state-detected,
     #state-error {
       text-align: center;
       display: flex;
@@ -444,6 +445,14 @@
     <div class="state-title">No job listing detected</div>
     <p class="state-body">This page doesn&rsquo;t look like a job listing. Navigate to a job post or analyse anyway.</p>
     <button class="primary-btn" id="btn-analyse-anyway">Analyse this page</button>
+  </div>
+
+  <!-- Job detected, waiting for user confirmation -->
+  <div id="state-detected" class="state hidden">
+    <div class="state-icon">&#128188;</div>
+    <div class="state-title">Job listing detected</div>
+    <p class="state-body">Review this job against your CV and preferences when you are ready.</p>
+    <button class="primary-btn" id="btn-analyse-detected">Analyse job</button>
   </div>
 
   <!-- Error -->

@@ -9,18 +9,116 @@
     'who we are', 'equal opportunity employer', 'years of experience'
   ];
   const MAX_WORDS = 2000;
+  const DETECTION_DEBOUNCE_MS = 1200;
+  const JOB_DETAIL_SELECTORS = [
+    '.jobs-search__job-details--container',
+    '.jobs-details__main-content',
+    '.jobs-details',
+    '.job-view-layout',
+    '.jobs-description',
+    '.jobs-description__container',
+    '.jobs-description-content__text',
+    '.jobs-box__html-content',
+    '.jobs-unified-top-card',
+    '.job-description',
+    '#job-description',
+    '.jobDescriptionContent',
+    '.description__text',
+    '[data-testid="job-detail"]',
+    '.job-details-content',
+    '#jobDescriptionText',
+    '.jobs-description-content',
+    '.job-details-post',
+    '#vjs-content',
+    '.show-more-less-html__markup'
+  ];
 
-  let lastSentUrl = null;
+  let lastSentSignature = null;
   let debounceTimer = null;
 
+  function getStructuredJobPostingText() {
+    const parts = [];
+
+    document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
+      let data;
+      try {
+        data = JSON.parse(script.textContent);
+      } catch {
+        return;
+      }
+
+      const entries = Array.isArray(data) ? data : [data];
+      entries.flatMap(item => item?.['@graph'] || item).forEach(item => {
+        const type = item?.['@type'];
+        const isJobPosting = Array.isArray(type) ? type.includes('JobPosting') : type === 'JobPosting';
+        if (!item || !isJobPosting) return;
+
+        const org = item.hiringOrganization;
+        const location = Array.isArray(item.jobLocation) ? item.jobLocation[0] : item.jobLocation;
+        const address = location?.address;
+        const salary = item.baseSalary?.value;
+
+        parts.push([
+          item.title && `Title: ${item.title}`,
+          org?.name && `Company: ${org.name}`,
+          address && `Location: ${[address.addressLocality, address.addressRegion, address.addressCountry].filter(Boolean).join(', ')}`,
+          item.employmentType && `Employment type: ${Array.isArray(item.employmentType) ? item.employmentType.join(', ') : item.employmentType}`,
+          salary?.minValue && `Salary minimum: ${salary.minValue} ${salary.currency || item.baseSalary?.currency || ''}`,
+          salary?.maxValue && `Salary maximum: ${salary.maxValue} ${salary.currency || item.baseSalary?.currency || ''}`,
+          item.description && `Description: ${stripHtml(item.description)}`
+        ].filter(Boolean).join('\n'));
+      });
+    });
+
+    return parts.join('\n\n');
+  }
+
+  function stripHtml(html) {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    return (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function hasStructuredJobPosting() {
+    return getStructuredJobPostingText().length > 0;
+  }
+
+  function hasJobDetailContainer() {
+    return JOB_DETAIL_SELECTORS.some(selector => {
+      const el = document.querySelector(selector);
+      return el?.innerText && el.innerText.length > 200;
+    });
+  }
+
+  function hasJobUrlSignal() {
+    return /(^|[/.?&=-])(jobs?|careers?|positions?|vacancies|recruitment|jobsearch|job-detail|job-view)([/.?&=-]|$)/i
+      .test(window.location.href);
+  }
+
+  function getJobKeywordScore(text) {
+    const lower = text.toLowerCase();
+    let score = 0;
+
+    JOB_KEYWORDS.forEach(kw => {
+      if (lower.includes(kw)) {
+        if (['responsibilities', 'qualifications', 'requirements', 'salary', 'experience', 'about the role', 'ideal candidate'].includes(kw)) {
+          score += 2;
+        } else {
+          score += 1;
+        }
+      }
+    });
+
+    return score;
+  }
+
   function extractText() {
+    const structuredText = getStructuredJobPostingText();
+
     // 1. Identify the core container
     const selectors = [
-      'main', 'article', '[role="main"]',
-      '.job-description', '#job-description', '.jobDescriptionContent',
-      '.description__text', '[data-testid="job-detail"]', '.job-details-content',
-      '#jobDescriptionText', '.jobs-description', '.jobs-description-content',
-      '.job-details-post', '#vjs-content', '.show-more-less-html__markup'
+      ...JOB_DETAIL_SELECTORS,
+      'main', 'article', '[role="main"]'
     ];
     
     let source = null;
@@ -66,28 +164,23 @@
     // Normalize whitespace: replace multiple spaces/newlines with single ones
     text = text.replace(/\s+/g, ' ').trim();
 
-    return text;
+    return [structuredText, text].filter(Boolean).join('\n\n');
   }
 
   function isJobListing(text) {
     if (!text || text.length < 300) return false;
-    const lower = text.toLowerCase();
-    
-    // Weighted scoring
-    let score = 0;
-    JOB_KEYWORDS.forEach(kw => {
-      // Use regex for whole-word matching or just include check for simple phrases
-      if (lower.includes(kw)) {
-        // High-value keywords get more weight
-        if (['responsibilities', 'qualifications', 'requirements', 'salary', 'experience', 'about the role', 'ideal candidate'].includes(kw)) {
-          score += 2;
-        } else {
-          score += 1;
-        }
-      }
-    });
+    return getJobKeywordScore(text) >= 6;
+  }
 
-    return score >= 6; // Slightly lower threshold but with weighted scores
+  function shouldAutoDetect(text) {
+    if (!text || text.length < 300) return false;
+    if (hasStructuredJobPosting()) return true;
+
+    const keywordScore = getJobKeywordScore(text);
+    if (hasJobDetailContainer()) return keywordScore >= 5;
+    if (hasJobUrlSignal()) return keywordScore >= 8;
+
+    return false;
   }
 
   function truncateWords(text, maxWords) {
@@ -95,14 +188,31 @@
     return words.length <= maxWords ? text : words.slice(0, maxWords).join(' ') + '…';
   }
 
-  function tryDetect() {
-    if (lastSentUrl === window.location.href) return;
+  function getSignature(text) {
+    const normalized = text
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/\b\d+\s+applicants?\b/g, '')
+      .replace(/\bposted\s+\d+\s+\w+\s+ago\b/g, '')
+      .trim();
 
+    let hash = 0;
+    for (let i = 0; i < normalized.length; i += 1) {
+      hash = ((hash << 5) - hash + normalized.charCodeAt(i)) | 0;
+    }
+
+    return `${normalized.length}:${hash}`;
+  }
+
+  function tryDetect() {
     const text = extractText();
-    if (!isJobListing(text)) return;
+    if (!shouldAutoDetect(text)) return;
 
     const truncated = truncateWords(text, MAX_WORDS);
-    lastSentUrl = window.location.href;
+    const signature = getSignature(truncated);
+    if (signature === lastSentSignature) return;
+
+    lastSentSignature = signature;
 
     chrome.runtime.sendMessage({
       type: 'JOB_DETECTED',
@@ -111,24 +221,26 @@
     }).catch(() => {});
   }
 
+  function scheduleDetect(delay = DETECTION_DEBOUNCE_MS) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(tryDetect, delay);
+  }
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === 'GET_PAGE_TEXT') {
       const text = extractText();
       sendResponse({ text: truncateWords(text, MAX_WORDS), url: window.location.href });
     }
     if (message.type === 'IS_JOB_PAGE') {
-      sendResponse({ isJob: isJobListing(extractText()) });
+      sendResponse({ isJob: shouldAutoDetect(extractText()) });
     }
     return false;
   });
 
   // Detect SPA navigation by patching history methods
   function onUrlChange() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      lastSentUrl = null;
-      tryDetect();
-    }, 1500);
+    lastSentSignature = null;
+    scheduleDetect();
   }
 
   const origPush = history.pushState.bind(history);
@@ -144,6 +256,31 @@
   };
 
   window.addEventListener('popstate', onUrlChange);
+  document.addEventListener('click', event => {
+    if (event.target.closest('.job-card-container, .jobs-search-results__list-item, [data-job-id], [href*="/jobs/view/"]')) {
+      scheduleDetect();
+    }
+  }, true);
+
+  const observer = new MutationObserver(mutations => {
+    const shouldCheck = mutations.some(mutation => {
+      const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+      return target && (
+        target.closest(JOB_DETAIL_SELECTORS.join(', ')) ||
+        target.matches?.(JOB_DETAIL_SELECTORS.join(', '))
+      );
+    });
+
+    if (shouldCheck) scheduleDetect();
+  });
+
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
 
   tryDetect();
 })();

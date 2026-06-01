@@ -1,33 +1,4 @@
-'use strict';
-
-// ── Provider metadata (mirrors lib/providers.js without the fetch calls) ──────
-const PROVIDERS = {
-  anthropic: {
-    name: 'Anthropic (Claude)',
-    models: ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-sonnet-4.5', 'claude-haiku-4-5-20251001'],
-    hasApiKey: true
-  },
-  openai: {
-    name: 'OpenAI',
-    models: ['gpt-5.5', 'gpt-5.5-pro', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-4.1'],
-    hasApiKey: true
-  },
-  gemini: {
-    name: 'Google Gemini',
-    models: ['gemini-3.5-flash', 'gemini-3.1-flash', 'gemini-3.1-pro', 'gemini-2.5-pro'],
-    hasApiKey: true
-  },
-  ollama: {
-    name: 'Ollama (local)',
-    models: [],
-    hasApiKey: false
-  },
-  mistral: {
-    name: 'Mistral AI',
-    models: ['mistral-small-latest', 'mistral-medium-latest', 'mistral-large-latest'],
-    hasApiKey: true
-  }
-};
+import { PROVIDERS } from './lib/providers.js';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -45,6 +16,7 @@ const cvChars        = $('cv-chars');
 const btnImportCv    = $('btn-import-cv');
 const cvFileInput    = $('cv-file');
 const savedFlash     = $('saved-flash');
+const autoAnalysisMode = $('auto-analysis-mode');
 
 // Requirement fields
 const targetTitles   = $('target-titles');
@@ -237,6 +209,7 @@ function save() {
     provider,
     apiKey: apiKeyInput.value,
     model,
+    autoAnalysisMode:   autoAnalysisMode.value,
     cv: cvInput.value,
     targetTitles:        targetTitles.value,
     salaryMin:           salaryMin.value,
@@ -253,10 +226,10 @@ function save() {
 // Attach save to all input/change/textarea events
 [
   apiKeyInput, modelSel, modelCustom, cvInput, targetTitles, salaryMin,
-  currency, preferredInds, targetLocations, mustHave, dealBreakers, notes
+  currency, autoAnalysisMode, preferredInds, targetLocations, mustHave, dealBreakers, notes
 ].forEach(el => el.addEventListener('input', save));
 
-[arrRemote, arrHybrid, arrOnsite].forEach(el => el.addEventListener('change', save));
+[autoAnalysisMode, arrRemote, arrHybrid, arrOnsite].forEach(el => el.addEventListener('change', save));
 
 // Handle Ctrl+S / Cmd+S to save settings
 document.addEventListener('keydown', (e) => {
@@ -344,6 +317,7 @@ chrome.storage.local.get(null, (settings) => {
 
   cvInput.value = settings.cv || '';
   cvChars.textContent = cvInput.value.length.toLocaleString();
+  autoAnalysisMode.value = settings.autoAnalysisMode || 'auto';
 
   targetTitles.value  = settings.targetTitles        || '';
   salaryMin.value     = settings.salaryMin            || '';
