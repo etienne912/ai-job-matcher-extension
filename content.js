@@ -11,6 +11,10 @@
   const MAX_WORDS = 2000;
   const DETECTION_DEBOUNCE_MS = 1200;
   const JOB_DETAIL_SELECTORS = [
+    '[class*="ashby-job-posting"]',
+    '.ashby-job-posting-right-pane',
+    '.ashby-job-posting-left-pane',
+    '#overview[role="tabpanel"]',
     '.jobs-search__job-details--container',
     '.jobs-details__main-content',
     '.jobs-details',
@@ -32,6 +36,7 @@
     '#vjs-content',
     '.show-more-less-html__markup'
   ];
+  const JOB_DETAIL_SELECTOR = JOB_DETAIL_SELECTORS.join(', ');
 
   let lastSentSignature = null;
   let debounceTimer = null;
@@ -91,7 +96,7 @@
   }
 
   function hasJobUrlSignal() {
-    return /(^|[/.?&=-])(jobs?|careers?|positions?|vacancies|recruitment|jobsearch|job-detail|job-view)([/.?&=-]|$)/i
+    return /(^|[/.?&=-])(jobs?|careers?|positions?|vacancies|recruitment|jobsearch|job-detail|job-view|ashbyhq)([/.?&=-]|$)/i
       .test(window.location.href);
   }
 
@@ -257,19 +262,32 @@
 
   window.addEventListener('popstate', onUrlChange);
   document.addEventListener('click', event => {
-    if (event.target.closest('.job-card-container, .jobs-search-results__list-item, [data-job-id], [href*="/jobs/view/"]')) {
+    if (event.target.closest('.job-card-container, .jobs-search-results__list-item, [data-job-id], [href*="/jobs/view/"], [href*="jobs.ashbyhq.com"]')) {
       scheduleDetect();
     }
   }, true);
 
+  function mutationTouchesJobContent(mutation) {
+    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+
+    if (target && (target.closest(JOB_DETAIL_SELECTOR) || target.matches?.(JOB_DETAIL_SELECTOR))) {
+      return true;
+    }
+
+    for (const node of mutation.addedNodes) {
+      if (!(node instanceof Element)) continue;
+      if (node.matches?.(JOB_DETAIL_SELECTOR) || node.querySelector?.(JOB_DETAIL_SELECTOR)) {
+        return true;
+      }
+    }
+
+    // Many ATS pages render into a generic SPA root, so the first useful
+    // mutation may happen before a job-specific selector exists on the target.
+    return hasJobUrlSignal() && target?.id === 'root';
+  }
+
   const observer = new MutationObserver(mutations => {
-    const shouldCheck = mutations.some(mutation => {
-      const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-      return target && (
-        target.closest(JOB_DETAIL_SELECTORS.join(', ')) ||
-        target.matches?.(JOB_DETAIL_SELECTORS.join(', '))
-      );
-    });
+    const shouldCheck = mutations.some(mutationTouchesJobContent);
 
     if (shouldCheck) scheduleDetect();
   });
