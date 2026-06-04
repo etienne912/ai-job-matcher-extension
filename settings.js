@@ -1,4 +1,5 @@
 import { PROVIDERS } from './lib/providers.js';
+import { migrateProviderSettings } from './lib/provider-settings.js';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -34,6 +35,26 @@ const notes          = $('notes');
 
 // ── Provider / model UI ───────────────────────────────────────────────────────
 let modelLoadId = 0;
+let activeProvider = null;
+let apiKeysByProvider = {};
+let modelsByProvider = {};
+
+function storeVisibleProviderSettings(provider = activeProvider) {
+  if (!provider) return;
+
+  if (PROVIDERS[provider].hasApiKey) {
+    apiKeysByProvider[provider] = apiKeyInput.value;
+  }
+  if (modelSel.value) {
+    modelsByProvider[provider] = modelSel.value;
+  }
+}
+
+function showProviderApiKey(provider) {
+  apiKeyInput.value = apiKeysByProvider[provider] || '';
+  apiKeyInput.type = 'password';
+  btnShowKey.textContent = 'Show';
+}
 
 async function populateModels(provider, savedModel = null) {
   const loadId = ++modelLoadId;
@@ -97,12 +118,17 @@ async function populateModels(provider, savedModel = null) {
 }
 
 providerSel.addEventListener('change', async () => {
-  await populateModels(providerSel.value);
+  storeVisibleProviderSettings();
+  activeProvider = providerSel.value;
+  showProviderApiKey(activeProvider);
+  await populateModels(activeProvider, modelsByProvider[activeProvider]);
+  storeVisibleProviderSettings();
   save();
 });
 
 btnRefreshModels.addEventListener('click', async () => {
-  await populateModels('ollama', modelSel.value);
+  await populateModels('ollama', modelsByProvider.ollama || modelSel.value);
+  storeVisibleProviderSettings('ollama');
   save();
 });
 
@@ -217,12 +243,12 @@ function getWorkArrangement() {
 
 function save() {
   const provider = providerSel.value;
-  const model = modelSel.value;
+  storeVisibleProviderSettings(provider);
 
   chrome.storage.local.set({
     provider,
-    apiKey: apiKeyInput.value,
-    model,
+    apiKeysByProvider,
+    modelsByProvider,
     autoAnalysisMode:   autoAnalysisMode.value,
     cv: cvInput.value,
     targetTitles:        targetTitles.value,
@@ -314,8 +340,12 @@ btnTest.addEventListener('click', async () => {
 // ── Load saved settings ────────────────────────────────────────────────────────
 chrome.storage.local.get(null, async (settings) => {
   const provider = settings.provider || 'anthropic';
+  const migrated = migrateProviderSettings(settings, provider);
+  apiKeysByProvider = migrated.apiKeysByProvider;
+  modelsByProvider = migrated.modelsByProvider;
+  activeProvider = provider;
   providerSel.value = provider;
-  apiKeyInput.value = settings.apiKey || '';
+  showProviderApiKey(provider);
 
   cvInput.value = settings.cv || '';
   cvChars.textContent = cvInput.value.length.toLocaleString();
@@ -335,8 +365,8 @@ chrome.storage.local.get(null, async (settings) => {
   arrHybrid.checked  = !!arr['Hybrid'];
   arrOnsite.checked  = !!arr['On-site'];
 
-  await populateModels(provider, settings.model);
-  if (modelSel.value && modelSel.value !== settings.model) {
-    chrome.storage.local.set({ model: modelSel.value });
-  }
+  await populateModels(provider, modelsByProvider[provider]);
+  storeVisibleProviderSettings(provider);
+  await chrome.storage.local.set({ provider, apiKeysByProvider, modelsByProvider });
+  await chrome.storage.local.remove(['apiKey', 'model']);
 });

@@ -21,7 +21,7 @@ It works well with classic job pages and job-board layouts such as LinkedIn, whe
 - **History**: Keeps the last 30 analysed jobs and lets you clear history.
 - **CV import**: Paste plain text or extract text from supported PDF/DOCX files using your configured AI provider.
 - **Multiple providers**: Anthropic, OpenAI, Google Gemini, Mistral, and local Ollama.
-- **Local settings**: CV, preferences, API keys, and history are stored in Chrome local storage.
+- **Local settings**: CV, preferences, per-provider API keys/models, and history are stored in Chrome local storage.
 
 ---
 
@@ -51,8 +51,8 @@ It works well with classic job pages and job-board layouts such as LinkedIn, whe
 Open the extension settings from the sidebar gear icon or from the extension options page.
 
 1. Choose an AI provider.
-2. Select a model.
-3. Add an API key if the provider requires one.
+2. Select a model. The selection is remembered separately for each provider.
+3. Add an API key if the provider requires one. API keys are also remembered separately per provider.
 4. Paste your CV as plain text, or use **Import CV file**.
 5. Add your target roles, locations, salary, preferred work arrangement, must-have skills, and deal-breakers.
 6. Choose how analysis should start when a job is detected.

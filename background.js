@@ -1,4 +1,5 @@
 import { callProvider, fetchOllamaModels } from './lib/providers.js';
+import { createJobSignature, findCachedAnalysis, isMatchingAnalysis } from './lib/job-cache.js';
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -67,9 +68,11 @@ addAsyncMessageListener(async (message, sender) => {
   if (message.type === 'JOB_DETECTED') {
     const tabId = sender.tab?.id;
     if (!tabId) return { success: false, error: 'No tab context available' };
+    const jobSignature = createJobSignature(message.text);
     await chrome.storage.session.set({
       [`jobText_${tabId}`]: message.text,
-      [`jobUrl_${tabId}`]: message.url
+      [`jobUrl_${tabId}`]: message.url,
+      [`jobSignature_${tabId}`]: jobSignature
     });
     // Clear any stale analysis when a new job is detected
     await chrome.storage.session.remove([`analysis_${tabId}`]);
@@ -83,6 +86,7 @@ addAsyncMessageListener(async (message, sender) => {
         tabId,
         text: message.text,
         url: message.url,
+        jobSignature,
         autoAnalysisMode
       });
     } catch (e) {
@@ -104,18 +108,32 @@ addAsyncMessageListener(async (message, sender) => {
     const tabId = message.tabId || (await getActiveTabId());
     if (!tabId) return { text: null, url: null, tabId: null };
 
-    const stored = await chrome.storage.session.get([`jobText_${tabId}`, `jobUrl_${tabId}`]);
+    const stored = await chrome.storage.session.get([
+      `jobText_${tabId}`,
+      `jobUrl_${tabId}`,
+      `jobSignature_${tabId}`
+    ]);
     if (stored[`jobText_${tabId}`]) {
-      return { text: stored[`jobText_${tabId}`], url: stored[`jobUrl_${tabId}`], tabId };
+      const jobSignature = stored[`jobSignature_${tabId}`] || createJobSignature(stored[`jobText_${tabId}`]);
+      if (!stored[`jobSignature_${tabId}`]) {
+        await chrome.storage.session.set({ [`jobSignature_${tabId}`]: jobSignature });
+      }
+      return { text: stored[`jobText_${tabId}`], url: stored[`jobUrl_${tabId}`], jobSignature, tabId };
     }
 
     // Fall back to querying the content script directly
     return new Promise((resolve) => {
-      chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_TEXT' }, (response) => {
+      chrome.tabs.sendMessage(tabId, { type: 'GET_PAGE_TEXT' }, async (response) => {
         if (chrome.runtime.lastError || !response) {
           resolve({ text: null, url: null, tabId });
         } else {
-          resolve({ text: response.text, url: response.url, tabId });
+          const jobSignature = createJobSignature(response.text);
+          await chrome.storage.session.set({
+            [`jobText_${tabId}`]: response.text,
+            [`jobUrl_${tabId}`]: response.url,
+            [`jobSignature_${tabId}`]: jobSignature
+          });
+          resolve({ text: response.text, url: response.url, jobSignature, tabId });
         }
       });
     });
@@ -125,20 +143,25 @@ addAsyncMessageListener(async (message, sender) => {
     const tabId = message.tabId || (await getActiveTabId());
     if (!tabId) return { analysis: null };
     
-    // 1. Check session storage (current tab's analysis)
-    const result = await chrome.storage.session.get([`analysis_${tabId}`]);
-    if (result[`analysis_${tabId}`]) {
-      return { analysis: result[`analysis_${tabId}`] };
+    const stored = await chrome.storage.session.get([
+      `analysis_${tabId}`,
+      `jobText_${tabId}`,
+      `jobSignature_${tabId}`
+    ]);
+    const jobSignature = message.jobSignature
+      || stored[`jobSignature_${tabId}`]
+      || createJobSignature(stored[`jobText_${tabId}`]);
+
+    // 1. Check session storage for this exact job listing.
+    if (isMatchingAnalysis(stored[`analysis_${tabId}`], jobSignature)) {
+      return { analysis: stored[`analysis_${tabId}`] };
     }
 
-    // 2. Check history for this URL
-    const stored = await chrome.storage.session.get([`jobUrl_${tabId}`]);
-    const url = message.url || stored[`jobUrl_${tabId}`];
-    if (url) {
+    // 2. Check history for this exact job listing.
+    if (jobSignature) {
       const { history = [] } = await chrome.storage.local.get('history');
-      const cached = history.find(h => h.url === url);
+      const cached = findCachedAnalysis(history, jobSignature);
       if (cached) {
-        // Found in history, save it to session so it persists for this tab session
         await chrome.storage.session.set({ [`analysis_${tabId}`]: cached });
         return { analysis: cached };
       }
@@ -150,18 +173,20 @@ addAsyncMessageListener(async (message, sender) => {
   if (message.type === 'SAVE_ANALYSIS') {
     const tabId = message.tabId || (await getActiveTabId());
     if (tabId) {
-      const stored = await chrome.storage.session.get([`jobUrl_${tabId}`]);
+      const stored = await chrome.storage.session.get([`jobUrl_${tabId}`, `jobText_${tabId}`, `jobSignature_${tabId}`]);
       const url = message.url || stored[`jobUrl_${tabId}`];
-      
-      await chrome.storage.session.set({ [`analysis_${tabId}`]: message.analysis });
+      const jobSignature = message.jobSignature
+        || stored[`jobSignature_${tabId}`]
+        || createJobSignature(stored[`jobText_${tabId}`]);
+      const analysis = { ...message.analysis, jobSignature };
+
+      await chrome.storage.session.set({ [`analysis_${tabId}`]: analysis });
       
       // Also save to history if not partial
-      if (!message.analysis.isPartial) {
+      if (!analysis.isPartial) {
         const { history = [] } = await chrome.storage.local.get('history');
-        const entry = { ...message.analysis, url, timestamp: Date.now() };
-        const filtered = history.filter(h => 
-          !(h.url && entry.url ? h.url === entry.url : h.jobTitle === entry.jobTitle && h.company === entry.company)
-        );
+        const entry = { ...analysis, url, timestamp: Date.now() };
+        const filtered = history.filter(item => item.jobSignature !== jobSignature);
         const newHistory = [entry, ...filtered].slice(0, 30);
         await chrome.storage.local.set({ history: newHistory });
       }
@@ -172,7 +197,7 @@ addAsyncMessageListener(async (message, sender) => {
   if (message.type === 'CLEAR_ANALYSIS') {
     const id = message.tabId || (await getActiveTabId());
     if (id) {
-      await chrome.storage.session.remove([`analysis_${id}`, `jobText_${id}`, `jobUrl_${id}`]);
+      await chrome.storage.session.remove([`analysis_${id}`, `jobText_${id}`, `jobUrl_${id}`, `jobSignature_${id}`]);
     }
     return { success: true };
   }
@@ -215,11 +240,23 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
 // Notify sidebar when tab URL changes (e.g. user types new URL in active tab)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.url && tab.active) {
-    try {
-      await chrome.runtime.sendMessage({ type: 'TAB_CHANGED', tabId });
-    } catch (e) {
-      // Sidebar might not be open, ignore
-    }
+  if (!changeInfo.url) return;
+
+  const stored = await chrome.storage.session.get([`jobUrl_${tabId}`]);
+  if (stored[`jobUrl_${tabId}`] && stored[`jobUrl_${tabId}`] !== changeInfo.url) {
+    await chrome.storage.session.remove([
+      `analysis_${tabId}`,
+      `jobText_${tabId}`,
+      `jobUrl_${tabId}`,
+      `jobSignature_${tabId}`
+    ]);
+  }
+
+  if (!tab.active) return;
+
+  try {
+    await chrome.runtime.sendMessage({ type: 'TAB_CHANGED', tabId });
+  } catch (e) {
+    // Sidebar might not be open, ignore
   }
 });

@@ -1,4 +1,4 @@
-'use strict';
+import { getProviderApiKey, getProviderModel } from './lib/provider-settings.js';
 
 const CIRCUMFERENCE = 2 * Math.PI * 54; // 339.29
 
@@ -356,8 +356,8 @@ async function runAnalysis(jobText, context = {}) {
   }
 
   const provider = settings.provider || 'anthropic';
-  const apiKey = settings.apiKey || '';
-  const model = settings.model || '';
+  const apiKey = getProviderApiKey(settings, provider);
+  const model = getProviderModel(settings, provider);
 
   if (!model) {
     showError('No model selected. Open settings to configure an AI provider.');
@@ -405,6 +405,7 @@ async function runAnalysis(jobText, context = {}) {
       type: 'SAVE_ANALYSIS',
       tabId: context.tabId,
       url: context.url,
+      jobSignature: context.jobSignature,
       analysis: { ...analysis, isPartial }
     })
       .catch(err => console.warn('Failed to cache analysis:', err));
@@ -469,8 +470,13 @@ async function handleDetectedJob(jobText, context = {}, modeOverride = null) {
   currentJobText = jobText;
   currentJobUrl = context.url || currentJobUrl;
   currentTabId = context.tabId || currentTabId;
+  currentJobSignature = context.jobSignature || currentJobSignature;
 
-  const cached = await sendMessage({ type: 'GET_ANALYSIS', tabId: currentTabId, url: currentJobUrl }).catch(() => ({ analysis: null }));
+  const cached = await sendMessage({
+    type: 'GET_ANALYSIS',
+    tabId: currentTabId,
+    jobSignature: currentJobSignature
+  }).catch(() => ({ analysis: null }));
   if (cached.analysis) {
     renderResults(cached.analysis, cached.analysis.isPartial);
     return;
@@ -478,7 +484,7 @@ async function handleDetectedJob(jobText, context = {}, modeOverride = null) {
 
   const mode = modeOverride || await getAutoAnalysisMode();
   if (mode === 'auto') {
-    await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl });
+    await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl, jobSignature: currentJobSignature });
   } else {
     showState('detected');
   }
@@ -487,12 +493,13 @@ async function handleDetectedJob(jobText, context = {}, modeOverride = null) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 let currentJobText = null;
 let currentJobUrl = null;
+let currentJobSignature = null;
 let currentTabId = null;
 let activeAnalysisRunId = 0;
 
 async function init() {
   // 1. Check for a cached analysis first
-  const cached = await sendMessage({ type: 'GET_ANALYSIS', tabId: currentTabId, url: currentJobUrl }).catch(() => ({ analysis: null }));
+  const cached = await sendMessage({ type: 'GET_ANALYSIS', tabId: currentTabId }).catch(() => ({ analysis: null }));
   if (cached && cached.analysis) {
     renderResults(cached.analysis, cached.analysis.isPartial);
     return;
@@ -505,7 +512,11 @@ async function init() {
     return;
   }
 
-  await handleDetectedJob(jobData.text, { tabId: jobData.tabId, url: jobData.url });
+  await handleDetectedJob(jobData.text, {
+    tabId: jobData.tabId,
+    url: jobData.url,
+    jobSignature: jobData.jobSignature
+  });
 }
 
 // ── Event listeners ──────────────────────────────────────────────────────────
@@ -545,14 +556,15 @@ document.getElementById('btn-reanalyse').addEventListener('click', async () => {
   const jobData = await sendMessage({ type: 'GET_JOB_TEXT', tabId: currentTabId }).catch(() => ({ text: null }));
   currentJobText = jobData.text;
   currentJobUrl = jobData.url || currentJobUrl;
+  currentJobSignature = jobData.jobSignature || currentJobSignature;
   currentTabId = jobData.tabId || currentTabId;
   if (!currentJobText) { showState('notJob'); return; }
-  await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl });
+  await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl, jobSignature: currentJobSignature });
 });
 
 document.getElementById('btn-retry').addEventListener('click', async () => {
   if (currentJobText) {
-    await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl });
+    await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl, jobSignature: currentJobSignature });
   } else {
     await init();
   }
@@ -562,12 +574,13 @@ document.getElementById('btn-analyse-anyway').addEventListener('click', async ()
   const jobData = await sendMessage({ type: 'GET_JOB_TEXT', tabId: currentTabId }).catch(() => ({ text: null }));
   currentJobText = jobData.text;
   currentJobUrl = jobData.url || currentJobUrl;
+  currentJobSignature = jobData.jobSignature || currentJobSignature;
   currentTabId = jobData.tabId || currentTabId;
   if (!currentJobText) {
     showError('Could not extract text from this page.');
     return;
   }
-  await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl });
+  await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl, jobSignature: currentJobSignature });
 });
 
 document.getElementById('btn-analyse-detected').addEventListener('click', async () => {
@@ -575,7 +588,7 @@ document.getElementById('btn-analyse-detected').addEventListener('click', async 
     showError('Could not extract text from this page.');
     return;
   }
-  await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl });
+  await runAnalysis(currentJobText, { tabId: currentTabId, url: currentJobUrl, jobSignature: currentJobSignature });
 });
 
 // Listen for new job detections or tab changes
@@ -583,7 +596,7 @@ chrome.runtime.onMessage.addListener(async (message) => {
   if (message.type === 'SIDEBAR_JOB_DETECTED') {
     await handleDetectedJob(
       message.text,
-      { tabId: message.tabId, url: message.url },
+      { tabId: message.tabId, url: message.url, jobSignature: message.jobSignature },
       message.autoAnalysisMode
     );
   } else if (message.type === 'TAB_CHANGED') {
@@ -592,10 +605,13 @@ chrome.runtime.onMessage.addListener(async (message) => {
     currentTabId = message.tabId || null;
     currentJobText = null;
     currentJobUrl = null;
+    currentJobSignature = null;
     init();
   }
 });
 
-document.addEventListener('DOMContentLoaded', init);
-// Also fire immediately if DOMContentLoaded already fired
-if (document.readyState !== 'loading') init();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
+}
