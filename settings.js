@@ -8,7 +8,8 @@ const apiKeyInput    = $('api-key');
 const btnShowKey     = $('btn-show-key');
 const fieldApiKey    = $('field-api-key');
 const modelSel       = $('model');
-const modelCustom    = $('model-custom');
+const btnRefreshModels = $('btn-refresh-models');
+const modelStatus    = $('model-status');
 const btnTest        = $('btn-test');
 const testResult     = $('test-result');
 const cvInput        = $('cv');
@@ -32,30 +33,49 @@ const dealBreakers   = $('deal-breakers');
 const notes          = $('notes');
 
 // ── Provider / model UI ───────────────────────────────────────────────────────
+let modelLoadId = 0;
+
 async function populateModels(provider, savedModel = null) {
+  const loadId = ++modelLoadId;
   const info = PROVIDERS[provider];
   modelSel.innerHTML = '';
-  modelCustom.classList.add('hidden');
-  modelSel.classList.remove('hidden');
+  modelSel.disabled = false;
+  modelStatus.classList.add('hidden');
+  modelStatus.classList.remove('err');
+  btnRefreshModels.classList.toggle('hidden', provider !== 'ollama');
+  fieldApiKey.classList.toggle('hidden', !info.hasApiKey);
 
   let models = info.models;
 
   if (provider === 'ollama') {
     modelSel.innerHTML = '<option value="">Loading models...</option>';
+    modelSel.disabled = true;
+    btnRefreshModels.disabled = true;
+
     try {
       const response = await chrome.runtime.sendMessage({ type: 'FETCH_OLLAMA_MODELS' });
-      if (response.error) throw new Error(response.error);
-      models = response.models;
+      if (loadId !== modelLoadId) return;
+      if (response?.error) throw new Error(response.error);
+      models = Array.isArray(response?.models) ? response.models : [];
       modelSel.innerHTML = '';
+
       if (models.length === 0) {
-         throw new Error('No models found');
+        modelSel.innerHTML = '<option value="">No local models installed</option>';
+        modelStatus.textContent = 'Install a model with Ollama, then refresh this list.';
+        modelStatus.classList.remove('hidden');
       }
     } catch (err) {
+      if (loadId !== modelLoadId) return;
       console.error('Ollama models fetch failed:', err);
-      modelSel.classList.add('hidden');
-      modelCustom.classList.remove('hidden');
+      modelSel.innerHTML = '<option value="">Unable to load local models</option>';
+      modelStatus.textContent = `${err.message}. Ensure Ollama is running, then refresh the list.`;
+      modelStatus.classList.add('err');
+      modelStatus.classList.remove('hidden');
       models = [];
     }
+
+    modelSel.disabled = models.length === 0;
+    btnRefreshModels.disabled = false;
   }
 
   if (models.length > 0) {
@@ -65,26 +85,24 @@ async function populateModels(provider, savedModel = null) {
       opt.textContent = m;
       modelSel.appendChild(opt);
     });
-    if (savedModel) {
+    if (savedModel && models.includes(savedModel)) {
       modelSel.value = savedModel;
     }
   } else if (provider !== 'ollama') {
-    // Fallback if no models for other providers (shouldn't happen with static list)
     const opt = document.createElement('option');
     opt.value = '';
     opt.textContent = 'No models available';
     modelSel.appendChild(opt);
-  } else if (provider === 'ollama' && modelSel.innerHTML === '') {
-    // If ollama failed and we are showing custom input, or if no models found
-    modelSel.classList.add('hidden');
-    modelCustom.classList.remove('hidden');
   }
-
-  fieldApiKey.classList.toggle('hidden', !info.hasApiKey);
 }
 
-providerSel.addEventListener('change', () => {
-  populateModels(providerSel.value);
+providerSel.addEventListener('change', async () => {
+  await populateModels(providerSel.value);
+  save();
+});
+
+btnRefreshModels.addEventListener('click', async () => {
+  await populateModels('ollama', modelSel.value);
   save();
 });
 
@@ -143,9 +161,7 @@ async function extractTextWithAI(file) {
 
     const provider = providerSel.value;
     const apiKey   = apiKeyInput.value;
-    const model    = (provider === 'ollama' && modelSel.classList.contains('hidden')) 
-      ? modelCustom.value 
-      : modelSel.value;
+    const model    = modelSel.value;
 
     if (!model) throw new Error('Select a model first in AI Provider settings.');
     if (provider !== 'ollama' && !apiKey) throw new Error('Enter an API key first in AI Provider settings.');
@@ -201,9 +217,7 @@ function getWorkArrangement() {
 
 function save() {
   const provider = providerSel.value;
-  const model = (provider === 'ollama' && modelSel.classList.contains('hidden')) 
-    ? modelCustom.value 
-    : modelSel.value;
+  const model = modelSel.value;
 
   chrome.storage.local.set({
     provider,
@@ -225,7 +239,7 @@ function save() {
 
 // Attach save to all input/change/textarea events
 [
-  apiKeyInput, modelSel, modelCustom, cvInput, targetTitles, salaryMin,
+  apiKeyInput, modelSel, cvInput, targetTitles, salaryMin,
   currency, autoAnalysisMode, preferredInds, targetLocations, mustHave, dealBreakers, notes
 ].forEach(el => el.addEventListener('input', save));
 
@@ -262,9 +276,7 @@ btnTest.addEventListener('click', async () => {
 
   const provider = providerSel.value;
   const apiKey   = apiKeyInput.value;
-  const model    = (provider === 'ollama' && modelSel.classList.contains('hidden')) 
-    ? modelCustom.value 
-    : modelSel.value;
+  const model    = modelSel.value;
 
   if (!model) {
     testResult.textContent = 'Select a model first.';
@@ -300,20 +312,10 @@ btnTest.addEventListener('click', async () => {
 });
 
 // ── Load saved settings ────────────────────────────────────────────────────────
-chrome.storage.local.get(null, (settings) => {
+chrome.storage.local.get(null, async (settings) => {
   const provider = settings.provider || 'anthropic';
   providerSel.value = provider;
-  populateModels(provider, settings.model);
-
   apiKeyInput.value = settings.apiKey || '';
-
-  if (provider === 'ollama' && !modelSel.classList.contains('hidden')) {
-     // Model selection is handled by populateModels for dropdown
-  } else if (provider === 'ollama') {
-    modelCustom.value = settings.model || '';
-  } else {
-    if (settings.model) modelSel.value = settings.model;
-  }
 
   cvInput.value = settings.cv || '';
   cvChars.textContent = cvInput.value.length.toLocaleString();
@@ -332,4 +334,9 @@ chrome.storage.local.get(null, (settings) => {
   arrRemote.checked  = !!arr['Remote'];
   arrHybrid.checked  = !!arr['Hybrid'];
   arrOnsite.checked  = !!arr['On-site'];
+
+  await populateModels(provider, settings.model);
+  if (modelSel.value && modelSel.value !== settings.model) {
+    chrome.storage.local.set({ model: modelSel.value });
+  }
 });

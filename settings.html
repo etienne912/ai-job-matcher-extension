@@ -158,6 +158,12 @@
     }
     .api-key-row input { flex: 1; }
 
+    .model-row {
+      display: flex;
+      gap: 6px;
+    }
+    .model-row select { flex: 1; }
+
     .icon-btn {
       background: var(--grey-bg);
       border: 1px solid var(--border);
@@ -170,6 +176,9 @@
       white-space: nowrap;
     }
     .icon-btn:hover { background: #E5E2DA; }
+    .icon-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    #model-status.err { color: var(--red); }
 
     /* Char count */
     .char-count {
@@ -292,8 +301,11 @@
 
         <div class="field">
           <label for="model">Model</label>
-          <select id="model"></select>
-          <input type="text" id="model-custom" class="hidden" placeholder="e.g. llama3.2 or mistral"/>
+          <div class="model-row">
+            <select id="model"></select>
+            <button class="icon-btn hidden" id="btn-refresh-models" type="button">Refresh</button>
+          </div>
+          <span class="hint hidden" id="model-status"></span>
         </div>
 
         <div class="test-row">
