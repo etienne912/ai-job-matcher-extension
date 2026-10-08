@@ -18,7 +18,7 @@ It works well with classic job pages and job-board layouts such as LinkedIn, whe
 - **Hidden information check**: Highlights buried applicant instructions or screening tests found inside the offer.
 - **LinkedIn-style job switching**: Re-detects the selected job when you click another offer in a job list/detail-panel layout.
 - **Analysis modes**: Choose automatic analysis, ask-before-analysis, or manual-only mode.
-- **History**: Keeps the last 30 analysed jobs and lets you clear history.
+- **History**: Keeps the last 50 analysed jobs and lets you clear history.
 - **CV import**: Paste plain text or extract text from supported PDF/DOCX files using your configured AI provider.
 - **Multiple providers**: Anthropic, OpenAI, Google Gemini, Mistral, and local Ollama.
 - **Local settings**: CV, preferences, per-provider API keys/models, and history are stored in Chrome local storage.
@@ -75,9 +75,9 @@ Provider and model metadata lives in `lib/providers.js`. Availability can vary b
 
 | Provider | Example Models |
 | :--- | :--- |
-| **Anthropic** | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-sonnet-4.5`, `claude-haiku-4-5-20251001` |
-| **OpenAI** | `gpt-5.5`, `gpt-5.5-pro`, `gpt-5.5-mini`, `gpt-5.4-mini`, `gpt-4.1` |
-| **Google Gemini** | `gemini-3.5-flash`, `gemini-3.1-flash`, `gemini-3.1-pro`, `gemini-2.5-pro` |
+| **Anthropic** | `claude-opus-5-5`, `claude-sonnet-5-5` |
+| **OpenAI** | `gpt-6.1-sol`, `gpt-6-luna`, `gpt-5.5` |
+| **Google Gemini** | `gemini-3.8-flash`, `gemini-3.7-flash` |
 | **Mistral AI** | `mistral-small-latest`, `mistral-medium-latest`, `mistral-large-latest` |
 | **Ollama** | Detected from your local Ollama library |
 

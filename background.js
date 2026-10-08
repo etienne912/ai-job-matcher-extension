@@ -187,7 +187,7 @@ addAsyncMessageListener(async (message, sender) => {
         const { history = [] } = await chrome.storage.local.get('history');
         const entry = { ...analysis, url, timestamp: Date.now() };
         const filtered = history.filter(item => item.jobSignature !== jobSignature);
-        const newHistory = [entry, ...filtered].slice(0, 30);
+        const newHistory = [entry, ...filtered].slice(0, 50);
         await chrome.storage.local.set({ history: newHistory });
       }
     }
